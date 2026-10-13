@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ArrowRight, FileJson, LoaderCircle, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface FileDropzoneProps {
@@ -21,7 +22,7 @@ export function FileDropzone({ onFile, onDemo, isLoading = false, error }: FileD
   };
 
   return (
-    <div className="rounded-[2rem] border border-stone-200 bg-white p-3 shadow-[0_28px_80px_-42px_rgba(35,31,28,0.45)] sm:p-4">
+    <Card className="rounded-[2rem] border-stone-200 bg-white p-3 shadow-[0_28px_80px_-42px_rgba(35,31,28,0.45)] sm:p-4">
       <div
         className={cn(
           "flex min-h-72 flex-col items-center justify-center rounded-[1.45rem] border border-dashed px-6 py-10 text-center transition-all",
@@ -57,9 +58,9 @@ export function FileDropzone({ onFile, onDemo, isLoading = false, error }: FileD
         </Button>
         {error ? <p role="alert" className="mt-4 max-w-sm text-sm font-medium text-red-600">{error}</p> : null}
       </div>
-      <button
-        type="button"
-        className="group mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-colors hover:bg-stone-50"
+      <Button
+        variant="ghost"
+        className="group mt-2 h-auto w-full justify-between rounded-2xl px-4 py-3 text-left hover:bg-stone-50"
         onClick={onDemo}
         disabled={isLoading}
       >
@@ -70,7 +71,7 @@ export function FileDropzone({ onFile, onDemo, isLoading = false, error }: FileD
         <span className="grid size-9 place-items-center rounded-full border border-stone-200 text-stone-600 transition group-hover:border-orange-200 group-hover:bg-orange-50 group-hover:text-orange-700">
           <ArrowRight className="size-4" />
         </span>
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }

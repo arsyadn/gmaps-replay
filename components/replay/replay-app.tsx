@@ -16,7 +16,9 @@ import { FileDropzone } from "@/components/replay/file-dropzone";
 import { ReplayControls } from "@/components/replay/replay-controls";
 import { ReplayMap } from "@/components/replay/replay-map";
 import { RouteOverview } from "@/components/replay/route-overview";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { parseGoogleTimelineJson } from "@/lib/parser/google-timeline";
 import type { ParsedLocationHistory } from "@/lib/types/replay";
 
@@ -47,14 +49,14 @@ function formatSize(bytes: number) {
 function AppHeader({ hasData, onReset }: { hasData: boolean; onReset: () => void }) {
   return (
     <header className="flex h-18 items-center justify-between border-b border-stone-200/80 bg-[#f7f6f1]/90 px-5 backdrop-blur-xl sm:px-8 lg:px-10">
-      <button type="button" className="flex items-center gap-2.5" onClick={onReset}>
+      <Button variant="ghost" className="h-auto gap-2.5 p-0 hover:bg-transparent" onClick={onReset}>
         <span className="grid size-9 place-items-center rounded-xl bg-stone-950 text-white"><Route className="size-4" /></span>
         <span className="text-sm font-extrabold tracking-[0.16em] text-stone-950">TRACEBACK</span>
-      </button>
+      </Button>
       <div className="flex items-center gap-3">
-        <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 sm:flex">
+        <Badge variant="outline" className="hidden border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 sm:flex">
           <LockKeyhole className="size-3" /> Local only
-        </span>
+        </Badge>
         {hasData ? (
           <Button variant="outline" className="h-9 rounded-full bg-white px-4" onClick={onReset}>
             <ChevronLeft className="size-3.5" /> New file
@@ -76,9 +78,9 @@ function Landing({ onFile, onDemo, isLoading, error }: {
       <div className="pointer-events-none absolute -left-32 top-36 -z-10 size-96 rounded-full bg-orange-200/35 blur-3xl" />
       <div className="mx-auto grid min-h-[calc(100vh-4.5rem)] max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-16">
         <section className="max-w-2xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm">
+          <Badge variant="outline" className="mb-6 gap-2 border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm">
             <Sparkles className="size-3.5 text-orange-600" /> Phase 01 · Replay engine
-          </div>
+          </Badge>
           <h1 className="text-balance text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-stone-950 sm:text-6xl lg:text-7xl">
             Your history,<br /><span className="font-serif font-normal italic text-orange-600">back in motion.</span>
           </h1>
@@ -93,11 +95,11 @@ function Landing({ onFile, onDemo, isLoading, error }: {
             ].map(([Icon, title, copy]) => {
               const FeatureIcon = Icon as typeof ShieldCheck;
               return (
-                <div key={String(title)} className="rounded-2xl border border-stone-200/80 bg-white/65 p-4 backdrop-blur-sm">
+                <Card key={String(title)} className="rounded-2xl border-stone-200/80 bg-white/65 p-4 backdrop-blur-sm">
                   <FeatureIcon className="mb-3 size-4 text-orange-600" />
                   <p className="text-sm font-semibold text-stone-900">{String(title)}</p>
                   <p className="mt-1 text-xs leading-5 text-stone-500">{String(copy)}</p>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -117,13 +119,13 @@ function SummaryCard({ icon: Icon, label, value }: {
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+    <Card className="rounded-2xl border-stone-200 bg-white p-4">
       <div className="mb-5 flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400">{label}</p>
         <Icon className="size-4 text-orange-600" />
       </div>
       <p className="text-2xl font-semibold tracking-tight text-stone-950">{value}</p>
-    </div>
+    </Card>
   );
 }
 
@@ -134,15 +136,19 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
   const wasCompleteRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const currentIndex = Math.min(data.points.length - 1, Math.floor(position));
+  const finalPosition = data.points.length - 1;
+  const safePosition = Number.isFinite(position)
+    ? Math.max(0, Math.min(finalPosition, position))
+    : 0;
+  const currentIndex = Math.floor(safePosition);
   const currentPoint = data.points[currentIndex];
-  const nextPoint = data.points[Math.min(data.points.length - 1, currentIndex + 1)];
-  const positionFraction = position - currentIndex;
+  const nextPoint = data.points[Math.min(finalPosition, currentIndex + 1)];
+  const positionFraction = safePosition - currentIndex;
   const currentTimestamp = new Date(
     Date.parse(currentPoint.timestamp) +
     (Date.parse(nextPoint.timestamp) - Date.parse(currentPoint.timestamp)) * positionFraction,
   ).toISOString();
-  const isComplete = position >= data.points.length - 1;
+  const isComplete = safePosition >= finalPosition;
 
   useEffect(() => {
     let frame: number | undefined;
@@ -159,7 +165,6 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
     if (!isPlaying) return;
     let animationFrame: number;
     let previousTime = performance.now();
-    const finalPosition = data.points.length - 1;
 
     const animate = (now: number) => {
       const elapsed = Math.min(64, now - previousTime);
@@ -180,7 +185,7 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
 
     animationFrame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [data.points.length, isPlaying, speed]);
+  }, [finalPosition, isPlaying, speed]);
 
   return (
     <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
@@ -199,9 +204,9 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-h-0 flex-col gap-4">
           <section className="flex min-h-[600px] flex-col overflow-hidden rounded-[1.5rem] border border-stone-200 bg-white shadow-[0_24px_65px_-46px_rgba(28,25,23,0.6)]">
-            <ReplayMap points={data.points} position={position} />
+            <ReplayMap points={data.points} position={safePosition} />
             <ReplayControls
-              position={position}
+              position={safePosition}
               total={data.points.length}
               isPlaying={isPlaying}
               speed={speed}
@@ -212,7 +217,7 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
                 setIsPlaying(false);
               }}
               onPlayToggle={() => {
-                if (position >= data.points.length - 1) {
+                if (safePosition >= finalPosition) {
                   positionRef.current = 0;
                   setPosition(0);
                 }
@@ -244,16 +249,16 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
             <SummaryCard icon={Footprints} label="Track points" value={data.points.length.toLocaleString()} />
           </div>
 
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <Card className="rounded-2xl border-stone-200 bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400">Date range</p>
             <div className="mt-4 flex items-center justify-between gap-2 text-sm font-semibold text-stone-800">
               <span>{formatDate(data.summary.startTime)}</span>
               <span className="h-px flex-1 bg-stone-200" />
               <span>{formatDate(data.summary.endTime)}</span>
             </div>
-          </div>
+          </Card>
 
-          <div className="flex-1 rounded-2xl border border-stone-200 bg-white p-5">
+          <Card className="flex-1 rounded-2xl border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400">Movement mix</p>
               <span className="text-xs text-stone-400">{data.sourceRecords} records</span>
@@ -274,11 +279,11 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
                 );
               })}
             </div>
-          </div>
+          </Card>
 
-          <button type="button" onClick={onReset} className="rounded-2xl border border-stone-200 bg-white p-4 text-sm font-semibold text-stone-600 transition hover:border-stone-300 hover:text-stone-950">
+          <Button variant="outline" onClick={onReset} className="h-auto rounded-2xl bg-white p-4 text-sm font-semibold text-stone-600 hover:border-stone-300 hover:text-stone-950">
             Load a different history
-          </button>
+          </Button>
         </aside>
       </div>
     </main>
