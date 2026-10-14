@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { FileDropzone } from "@/components/replay/file-dropzone";
 import { ReplayControls } from "@/components/replay/replay-controls";
-import { ReplayMap } from "@/components/replay/replay-map";
+import { getMovementVisual, ReplayMap } from "@/components/replay/replay-map";
 import { RouteOverview } from "@/components/replay/route-overview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,59 @@ import { parseGoogleTimelineJson } from "@/lib/parser/google-timeline";
 import type { ParsedLocationHistory } from "@/lib/types/replay";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const BASE_SEGMENT_DURATION_MS = 1_400;
+const MAX_DISTANCE_DURATION_MS = 4_600;
+const FLIGHT_SEGMENT_DURATION_MS = 8_500;
+const FLIGHT_MIN_DISTANCE_KM = 100;
+
+interface PlaybackPoint {
+  lat: number;
+  lng: number;
+  activityType?: string;
+}
+
+function isFlightActivity(activityType: string | undefined) {
+  const normalized = activityType
+    ?.replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase() ?? "";
+
+  return /plane|airplane|flying|flight|air travel/.test(normalized);
+}
+
+function distanceKilometers(
+  from: PlaybackPoint,
+  to: PlaybackPoint,
+) {
+  const radians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = radians(to.lat - from.lat);
+  const longitudeDelta = radians(to.lng - from.lng);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) *
+    Math.sin(longitudeDelta / 2) ** 2;
+  const clampedHaversine = Math.max(0, Math.min(1, haversine));
+
+  return 6_371 * 2 * Math.atan2(
+    Math.sqrt(clampedHaversine),
+    Math.sqrt(1 - clampedHaversine),
+  );
+}
+
+function segmentDurationMilliseconds(
+  from: PlaybackPoint,
+  to: PlaybackPoint,
+) {
+  const distance = distanceKilometers(from, to);
+  const activityType = to.activityType ?? from.activityType;
+  if (distance >= FLIGHT_MIN_DISTANCE_KM && isFlightActivity(activityType)) {
+    return FLIGHT_SEGMENT_DURATION_MS;
+  }
+  const distanceDuration = Math.log2(1 + distance) * 550;
+  return BASE_SEGMENT_DURATION_MS + Math.min(MAX_DISTANCE_DURATION_MS, distanceDuration);
+}
 
 function formatDate(value: string, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat("en", options ?? {
@@ -67,9 +120,9 @@ function AppHeader({ hasData, onReset }: { hasData: boolean; onReset: () => void
   );
 }
 
-function Landing({ onFile, onDemo, isLoading, error }: {
+function Landing({ onFile, onBuiltIn, isLoading, error }: {
   onFile: (file: File) => void;
-  onDemo: () => void;
+  onBuiltIn: () => void;
   isLoading: boolean;
   error: string | null;
 }) {
@@ -106,7 +159,7 @@ function Landing({ onFile, onDemo, isLoading, error }: {
         </section>
         <section className="relative">
           <div className="absolute -right-4 -top-5 -z-10 size-28 rounded-full border border-dashed border-orange-300" />
-          <FileDropzone onFile={onFile} onDemo={onDemo} isLoading={isLoading} error={error} />
+          <FileDropzone onFile={onFile} onBuiltIn={onBuiltIn} isLoading={isLoading} error={error} />
         </section>
       </div>
     </main>
@@ -149,6 +202,10 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
     (Date.parse(nextPoint.timestamp) - Date.parse(currentPoint.timestamp)) * positionFraction,
   ).toISOString();
   const isComplete = safePosition >= finalPosition;
+  const movementCount = data.activities.reduce(
+    (total, activity) => total + activity.count,
+    0,
+  );
 
   useEffect(() => {
     let frame: number | undefined;
@@ -169,9 +226,18 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
     const animate = (now: number) => {
       const elapsed = Math.min(64, now - previousTime);
       previousTime = now;
+      const activeIndex = Math.min(
+        finalPosition,
+        Math.max(0, Math.floor(positionRef.current)),
+      );
+      const segmentEndIndex = Math.min(finalPosition, activeIndex + 1);
+      const segmentDuration = segmentDurationMilliseconds(
+        data.points[activeIndex],
+        data.points[segmentEndIndex],
+      );
       const nextPosition = Math.min(
         finalPosition,
-        positionRef.current + (elapsed / 650) * speed,
+        positionRef.current + (elapsed / segmentDuration) * speed,
       );
       positionRef.current = nextPosition;
       setPosition(nextPosition);
@@ -185,7 +251,7 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
 
     animationFrame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [finalPosition, isPlaying, speed]);
+  }, [data.points, finalPosition, isPlaying, speed]);
 
   return (
     <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
@@ -261,19 +327,33 @@ function ReplayWorkspace({ data, onReset }: { data: ParsedLocationHistory; onRes
           <Card className="flex-1 rounded-2xl border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400">Movement mix</p>
-              <span className="text-xs text-stone-400">{data.sourceRecords} records</span>
+              <span className="text-xs text-stone-400">
+                {data.activities.length} modes · {movementCount} total movements
+              </span>
             </div>
             <div className="mt-4 space-y-3">
-              {data.activities.slice(0, 5).map((activity, index) => {
-                const maximum = data.activities[0]?.count || 1;
+              {data.activities.map((activity) => {
+                const percentage = movementCount > 0
+                  ? (activity.count / movementCount) * 100
+                  : 0;
+                const activityVisual = getMovementVisual(activity.label, "activity");
                 return (
                   <div key={activity.label}>
                     <div className="mb-1.5 flex items-center justify-between text-xs">
-                      <span className="font-medium text-stone-700">{activity.label}</span>
-                      <span className="tabular-nums text-stone-400">{activity.count}</span>
+                      <span className="flex items-center gap-2 font-medium text-stone-700">
+                        <span aria-hidden="true">{activityVisual.emoji}</span>
+                        {activity.label}
+                      </span>
+                      <span className="flex items-baseline gap-1 tabular-nums">
+                        <span className="font-bold text-stone-700">{activity.count}×</span>
+                        <span className="text-stone-400">· {percentage.toFixed(0)}%</span>
+                      </span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-stone-100">
-                      <div className={`h-full rounded-full ${index === 0 ? "bg-orange-600" : "bg-stone-400"}`} style={{ width: `${Math.max(8, (activity.count / maximum) * 100)}%` }} />
+                      <div
+                        className={`h-full rounded-full ${activityVisual.markerClassName}`}
+                        style={{ width: `${percentage}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -319,16 +399,16 @@ export function ReplayApp() {
     }
   };
 
-  const loadDemo = async () => {
+  const loadBuiltIn = async () => {
     setError(null);
     setIsLoading(true);
     try {
-      const response = await fetch("/location-history.json");
-      if (!response.ok) throw new Error("The demo file is unavailable.");
+      const response = await fetch("/api/built-in-history");
+      if (!response.ok) throw new Error("The built-in history is unavailable.");
       const text = await response.text();
       parseText(text, "location-history.json", new Blob([text]).size);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "The demo could not be loaded.");
+      setError(caughtError instanceof Error ? caughtError.message : "The built-in history could not be loaded.");
     } finally {
       setIsLoading(false);
     }
@@ -339,7 +419,7 @@ export function ReplayApp() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f7f6f1] text-stone-950">
       <AppHeader hasData={Boolean(data)} onReset={reset} />
-      {data ? <ReplayWorkspace data={data} onReset={reset} /> : <Landing onFile={loadFile} onDemo={loadDemo} isLoading={isLoading} error={error} />}
+      {data ? <ReplayWorkspace data={data} onReset={reset} /> : <Landing onFile={loadFile} onBuiltIn={loadBuiltIn} isLoading={isLoading} error={error} />}
     </div>
   );
 }

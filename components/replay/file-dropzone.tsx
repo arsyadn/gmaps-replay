@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 
 interface FileDropzoneProps {
   onFile: (file: File) => void;
-  onDemo: () => void;
+  onBuiltIn: () => void;
   isLoading?: boolean;
   error?: string | null;
 }
 
-export function FileDropzone({ onFile, onDemo, isLoading = false, error }: FileDropzoneProps) {
+export function FileDropzone({ onFile, onBuiltIn, isLoading = false, error }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -61,12 +61,12 @@ export function FileDropzone({ onFile, onDemo, isLoading = false, error }: FileD
       <Button
         variant="ghost"
         className="group mt-2 h-auto w-full justify-between rounded-2xl px-4 py-3 text-left hover:bg-stone-50"
-        onClick={onDemo}
+        onClick={onBuiltIn}
         disabled={isLoading}
       >
         <span>
-          <span className="block text-sm font-semibold text-stone-900">Not ready to upload?</span>
-          <span className="block text-xs text-stone-500">Explore the built-in Jakarta demo</span>
+          <span className="block text-sm font-semibold text-stone-900">Want to explore first?</span>
+          <span className="block text-xs text-stone-500">Replay the built-in multi-city journey</span>
         </span>
         <span className="grid size-9 place-items-center rounded-full border border-stone-200 text-stone-600 transition group-hover:border-orange-200 group-hover:bg-orange-50 group-hover:text-orange-700">
           <ArrowRight className="size-4" />

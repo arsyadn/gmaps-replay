@@ -41,6 +41,11 @@ function DeckOverlay(props: MapLibreOverlayProps) {
   return null;
 }
 
+function isRecoverableTileAbort(message: string) {
+  return message.includes("Failed to fetch (0)") &&
+    message.includes("tiles.openfreemap.org/planet/");
+}
+
 function getRouteBounds(points: ReplayPoint[]): RouteBounds {
   return points.reduce<RouteBounds>(
     (bounds, point) => ({
@@ -175,6 +180,11 @@ export function RouteOverview({ points, distanceKilometers }: RouteOverviewProps
               .querySelector(".maplibregl-ctrl-attrib")
               ?.classList.remove("maplibregl-compact-show");
             setIsMapReady(true);
+          }}
+          onError={(event) => {
+            if (!isRecoverableTileAbort(event.error.message)) {
+              console.error("Map rendering error", event.error);
+            }
           }}
           style={{ width: "100%", height: "100%" }}
         >
