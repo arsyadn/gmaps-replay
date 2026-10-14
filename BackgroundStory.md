@@ -104,3 +104,23 @@ Most common visit:
 Saturday • 16:00–21:00
 Terus ada:
 View on Google Maps
+
+
+========================================== PHASES
+Phase 1 — Ingestion & Core Replay Engine:
+Client-side parser for Google Takeout Semantic JSON.
+Built-in realistic Demo Dataset.
+Interactive map with moving trail, scrubber bar, play/pause, speed controls, and auto-following camera.
+
+Phase 2 — Spotify Wrapped & Place Analytics:
+Annual & monthly summary cards (Total km, places visited, top routes).
+Clickable Place Detail modal with temporal distribution (e.g., "Most visited on Saturday 16:00–21:00").
+
+Phase 3 — Story Mode & Geography Passport:
+Auto-generated chaptered documentary playback.
+Province and city unlocking checklist with interactive badges.
+Lifetime heatmap toggle.
+
+Phase 4 — Social Export:
+Generate downloadable 9:16 story cards (PNG / Canvas video) for Instagram and TikTok sharing.
+.
