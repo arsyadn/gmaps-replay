@@ -192,8 +192,7 @@ export function ReplayWorkspace({ data, onReset, onChangeDateRange }: ReplayWork
           {isComplete ? (
             <div ref={overviewRef} className="scroll-mt-5">
               <RouteOverview
-                points={data.points}
-                distanceKilometers={data.summary.distanceMeters / 1000}
+                data={data}
               />
             </div>
           ) : null}
