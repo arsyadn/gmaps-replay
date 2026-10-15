@@ -29,7 +29,7 @@ function Slider({ className, defaultValue, value, min = 0, max = 100, "aria-labe
           key={index}
           data-slot="slider-thumb"
           aria-label={ariaLabel ? `${ariaLabel}${values.length > 1 ? ` ${index + 1}` : ""}` : undefined}
-          className="block size-4 shrink-0 rounded-full border-[3px] border-white bg-orange-600 shadow-md outline-none ring-orange-500/25 transition-shadow hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50"
+          className="cursor-pointer block size-4 shrink-0 rounded-full border-[3px] border-white bg-orange-600 shadow-md outline-none ring-orange-500/25 transition-shadow hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </SliderPrimitive.Root>

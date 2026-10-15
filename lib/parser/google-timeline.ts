@@ -4,9 +4,21 @@ import type {
   ParsedLocationHistory,
   ReplayPoint,
 } from "@/lib/types/replay";
+import { getDateRangeBounds, timestampToDateValue } from "@/lib/date-range";
 
 type UnknownRecord = Record<string, unknown>;
 const EARTH_RADIUS_METERS = 6_371_000;
+
+export interface TimelineDateRange {
+  startDate: string;
+  endDate: string;
+}
+
+export interface TimelineDateInspection {
+  startDate: string;
+  endDate: string;
+  sourceRecords: number;
+}
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,6 +107,78 @@ function readDuration(record: UnknownRecord): { start: string | null; end: strin
   return { start, end };
 }
 
+function parseTimelineJson(jsonText: string): { records: unknown[] } {
+  let json: unknown;
+  try {
+    json = JSON.parse(jsonText);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown JSON error";
+    throw new Error(`This file is not valid JSON. ${detail}`);
+  }
+
+  const records = flattenTimelineObjects(json);
+  if (!records.length) throw new Error("No timeline records were found in this file.");
+  return { records };
+}
+
+export function inspectGoogleTimelineJson(jsonText: string): TimelineDateInspection {
+  const { records } = parseTimelineJson(jsonText);
+  let earliestTimestamp = Number.POSITIVE_INFINITY;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+
+  const addTimestamp = (value: string | null) => {
+    if (!value) return;
+    const timestamp = Date.parse(value);
+    if (Number.isFinite(timestamp)) {
+      earliestTimestamp = Math.min(earliestTimestamp, timestamp);
+      latestTimestamp = Math.max(latestTimestamp, timestamp);
+    }
+  };
+
+  records.forEach((rawRecord) => {
+    const record = asRecord(rawRecord);
+    if (!record) return;
+
+    const recordDuration = readDuration(record);
+    addTimestamp(recordDuration.start);
+    addTimestamp(recordDuration.end);
+
+    const visit = asRecord(record.visit ?? record.placeVisit);
+    if (visit) {
+      const visitDuration = readDuration(visit);
+      addTimestamp(visitDuration.start);
+      addTimestamp(visitDuration.end);
+    }
+
+    const activity = asRecord(record.activity ?? record.activitySegment);
+    if (activity) {
+      const activityDuration = readDuration(activity);
+      addTimestamp(activityDuration.start);
+      addTimestamp(activityDuration.end);
+    }
+
+    if (recordDuration.start && Array.isArray(record.timelinePath)) {
+      const startMs = Date.parse(recordDuration.start);
+      record.timelinePath.forEach((rawPathPoint) => {
+        const offset = asNumber(asRecord(rawPathPoint)?.durationMinutesOffsetFromStartTime);
+        if (offset !== undefined) addTimestamp(new Date(startMs + offset * 60_000).toISOString());
+      });
+    }
+  });
+
+  if (!Number.isFinite(earliestTimestamp) || !Number.isFinite(latestTimestamp)) {
+    throw new Error("No dated timeline records were found in this file.");
+  }
+  const startTimestamp = new Date(earliestTimestamp).toISOString();
+  const endTimestamp = new Date(latestTimestamp).toISOString();
+
+  return {
+    startDate: timestampToDateValue(startTimestamp),
+    endDate: timestampToDateValue(endTimestamp),
+    sourceRecords: records.length,
+  };
+}
+
 function createPoint(
   coordinate: GeoPoint | null,
   timestamp: string | null,
@@ -108,17 +192,36 @@ export function parseGoogleTimelineJson(
   jsonText: string,
   fileName = "location-history.json",
   fileSizeBytes = new Blob([jsonText]).size,
+  dateRange?: TimelineDateRange,
 ): ParsedLocationHistory {
-  let json: unknown;
-  try {
-    json = JSON.parse(jsonText);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "Unknown JSON error";
-    throw new Error(`This file is not valid JSON. ${detail}`);
-  }
-
-  const records = flattenTimelineObjects(json);
-  if (!records.length) throw new Error("No timeline records were found in this file.");
+  const { records } = parseTimelineJson(jsonText);
+  const rangeBounds = dateRange
+    ? getDateRangeBounds(dateRange.startDate, dateRange.endDate)
+    : null;
+  const timestampIsSelected = (timestamp: string | null) => {
+    if (!timestamp || !rangeBounds) return Boolean(timestamp);
+    const value = Date.parse(timestamp);
+    return value >= rangeBounds.startMs && value < rangeBounds.endExclusiveMs;
+  };
+  const intervalIsSelected = (start: string | null, end: string | null) => {
+    if (!rangeBounds) return true;
+    const startMs = start ? Date.parse(start) : Number.NaN;
+    const endMs = end ? Date.parse(end) : startMs;
+    if (!Number.isFinite(startMs) && !Number.isFinite(endMs)) return false;
+    const intervalStart = Number.isFinite(startMs) ? startMs : endMs;
+    const intervalEnd = Number.isFinite(endMs) ? Math.max(intervalStart, endMs) : intervalStart;
+    return intervalStart < rangeBounds.endExclusiveMs && intervalEnd >= rangeBounds.startMs;
+  };
+  const clampToRange = (timestamp: string | null, edge: "start" | "end") => {
+    if (!timestamp || !rangeBounds) return timestamp;
+    const value = Date.parse(timestamp);
+    if (!Number.isFinite(value)) return null;
+    const maximum = rangeBounds.endExclusiveMs - 1;
+    const clamped = edge === "start"
+      ? Math.max(rangeBounds.startMs, Math.min(maximum, value))
+      : Math.min(maximum, Math.max(rangeBounds.startMs, value));
+    return new Date(clamped).toISOString();
+  };
 
   const points: ReplayPoint[] = [];
   const activities = new Map<string, ActivityBreakdown>();
@@ -134,12 +237,14 @@ export function parseGoogleTimelineJson(
     if (visit) {
       const visitDuration = readDuration(visit);
       const start = recordDuration.start ?? visitDuration.start;
+      const end = recordDuration.end ?? visitDuration.end;
+      if (!intervalIsSelected(start, end)) return;
       const candidate = asRecord(visit.topCandidate);
       const location = asRecord(visit.location);
       const coordinate = parseGeoString(candidate?.placeLocation) ?? parseLegacyLocation(location);
       const semanticType = asString(candidate?.semanticType ?? location?.semanticType);
       const placeName = asString(location?.name ?? location?.address);
-      const point = createPoint(coordinate, start, {
+      const point = createPoint(coordinate, clampToRange(start ?? end, "start"), {
         id: `visit-${recordIndex}`,
         kind: "visit",
         label: placeName ?? (semanticType === "Aliased Location" ? "Saved place" : "Visited place"),
@@ -156,6 +261,7 @@ export function parseGoogleTimelineJson(
       const activityDuration = readDuration(activity);
       const start = recordDuration.start ?? activityDuration.start;
       const end = recordDuration.end ?? activityDuration.end;
+      if (!intervalIsSelected(start, end)) return;
       const candidate = asRecord(activity.topCandidate);
       const waypointPath = asRecord(activity.waypointPath);
       const activityType = prettifyActivity(
@@ -163,10 +269,10 @@ export function parseGoogleTimelineJson(
       );
       const startCoordinate = parseGeoString(activity.start) ?? parseLegacyLocation(activity.startLocation);
       const endCoordinate = parseGeoString(activity.end) ?? parseLegacyLocation(activity.endLocation);
-      const startPoint = createPoint(startCoordinate, start, {
+      const startPoint = createPoint(startCoordinate, clampToRange(start, "start"), {
         id: `activity-${recordIndex}-start`, kind: "activity", label: activityType, activityType,
       });
-      const endPoint = createPoint(endCoordinate, end, {
+      const endPoint = createPoint(endCoordinate, clampToRange(end, "end"), {
         id: `activity-${recordIndex}-end`, kind: "activity", label: activityType, activityType,
       });
       if (startPoint) points.push(startPoint);
@@ -191,7 +297,7 @@ export function parseGoogleTimelineJson(
         const point = createPoint(coordinate, timestamp, {
           id: `path-${recordIndex}-${pointIndex}`, kind: "path", label: "Timeline point",
         });
-        if (point) points.push(point);
+        if (point && timestampIsSelected(point.timestamp)) points.push(point);
       });
     }
   });
@@ -202,7 +308,11 @@ export function parseGoogleTimelineJson(
     return !previous || point.timestamp !== previous.timestamp || point.lat !== previous.lat || point.lng !== previous.lng;
   });
   if (dedupedPoints.length < 2) {
-    throw new Error("We found timeline data, but not enough valid coordinates to build a replay.");
+    throw new Error(
+      dateRange
+        ? "That date range does not contain enough valid coordinates. Choose a wider range and try again."
+        : "We found timeline data, but not enough valid coordinates to build a replay.",
+    );
   }
 
   const fallbackDistance = dedupedPoints.slice(1).reduce((total, point, index) => {

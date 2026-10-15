@@ -1,4 +1,4 @@
-import { CalendarDays, Footprints, MapPin, Route } from "lucide-react";
+import { CalendarDays, CalendarRange, Footprints, MapPin, Route } from "lucide-react";
 import { getMovementVisual } from "@/components/replay/replay-map";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import type { ParsedLocationHistory } from "@/lib/types/replay";
 interface ReplaySidebarProps {
   data: ParsedLocationHistory;
   onReset: () => void;
+  onChangeDateRange: () => void;
 }
 
 function formatDate(value: string) {
@@ -33,7 +34,7 @@ function SummaryCard({ icon: Icon, label, value }: {
   );
 }
 
-export function ReplaySidebar({ data, onReset }: ReplaySidebarProps) {
+export function ReplaySidebar({ data, onReset, onChangeDateRange }: ReplaySidebarProps) {
   const movementCount = data.activities.reduce(
     (total, activity) => total + activity.count,
     0,
@@ -55,6 +56,14 @@ export function ReplaySidebar({ data, onReset }: ReplaySidebarProps) {
           <span className="h-px flex-1 bg-stone-200" />
           <span>{formatDate(data.summary.endTime)}</span>
         </div>
+        <Button
+          variant="outline"
+          onClick={onChangeDateRange}
+          className="mt-5 h-10 w-full rounded-xl border-orange-200 bg-orange-50 font-semibold text-orange-700 hover:border-orange-300 hover:bg-orange-100 hover:text-orange-800"
+        >
+          <CalendarRange />
+          Change Date Range
+        </Button>
       </Card>
 
       <Card className="flex-1 rounded-2xl border-stone-200 bg-white p-5">

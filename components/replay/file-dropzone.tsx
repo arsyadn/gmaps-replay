@@ -42,7 +42,10 @@ export function FileDropzone({ onFile, onBuiltIn, isLoading = false, error }: Fi
           className="sr-only"
           type="file"
           accept="application/json,.json"
-          onChange={(event) => acceptFile(event.target.files?.[0])}
+          onChange={(event) => {
+            acceptFile(event.target.files?.[0]);
+            event.currentTarget.value = "";
+          }}
         />
         <div className="mb-5 grid size-14 place-items-center rounded-2xl bg-stone-950 text-white shadow-lg shadow-stone-950/15">
           {isLoading ? <LoaderCircle className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}

@@ -22,6 +22,7 @@ interface PlaybackPoint {
 interface ReplayWorkspaceProps {
   data: ParsedLocationHistory;
   onReset: () => void;
+  onChangeDateRange: () => void;
 }
 
 function isFlightActivity(activityType: string | undefined) {
@@ -77,7 +78,7 @@ function formatSize(bytes: number) {
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function ReplayWorkspace({ data, onReset }: ReplayWorkspaceProps) {
+export function ReplayWorkspace({ data, onReset, onChangeDateRange }: ReplayWorkspaceProps) {
   const [position, setPosition] = useState(0);
   const positionRef = useRef(0);
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -198,7 +199,11 @@ export function ReplayWorkspace({ data, onReset }: ReplayWorkspaceProps) {
           ) : null}
         </div>
 
-        <ReplaySidebar data={data} onReset={onReset} />
+        <ReplaySidebar
+          data={data}
+          onReset={onReset}
+          onChangeDateRange={onChangeDateRange}
+        />
       </div>
     </main>
   );
