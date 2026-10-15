@@ -22,6 +22,17 @@ function earlierDate(first: string, second: string) {
   return first < second ? first : second;
 }
 
+function laterDate(first: string, second: string) {
+  return first > second ? first : second;
+}
+
+function getYearDateRange(year: number, availableStartDate: string, availableEndDate: string) {
+  return {
+    startDate: laterDate(`${year}-01-01`, availableStartDate),
+    endDate: earlierDate(`${year}-12-31`, availableEndDate),
+  };
+}
+
 function formatDisplayDate(value: string) {
   const date = parseDateValue(value);
   return date
@@ -62,10 +73,22 @@ export function DateRangeModal({
     : initialMaximumEndDate;
   const [startDate, setStartDate] = useState(requestedStartDate);
   const [endDate, setEndDate] = useState(requestedEndDate);
+  const availableYears = useMemo(() => {
+    const firstYear = Number(availableStartDate.slice(0, 4));
+    const lastYear = Number(availableEndDate.slice(0, 4));
+    return Array.from(
+      { length: Math.max(0, lastYear - firstYear + 1) },
+      (_, index) => lastYear - index,
+    );
+  }, [availableEndDate, availableStartDate]);
   const maximumEndDate = useMemo(
     () => earlierDate(availableEndDate, shiftDateValueByYear(startDate, 1) ?? availableEndDate),
     [availableEndDate, startDate],
   );
+  const selectedPresetYear = availableYears.find((year) => {
+    const yearRange = getYearDateRange(year, availableStartDate, availableEndDate);
+    return startDate === yearRange.startDate && endDate === yearRange.endDate;
+  });
   const validationError = !startDate || !endDate
     ? "Choose both dates to continue."
     : endDate < startDate
@@ -115,6 +138,32 @@ export function DateRangeModal({
             </div>
 
             <div className="px-6 py-6 sm:px-7">
+              <label className="mb-5 grid gap-2 text-sm font-semibold text-stone-800">
+                Quick select a year
+                <select
+                  value={selectedPresetYear ?? ""}
+                  disabled={isLoading}
+                  onChange={(event) => {
+                    if (!event.target.value) return;
+                    const year = Number(event.target.value);
+                    if (!Number.isInteger(year)) return;
+                    const yearRange = getYearDateRange(
+                      year,
+                      availableStartDate,
+                      availableEndDate,
+                    );
+                    setStartDate(yearRange.startDate);
+                    setEndDate(yearRange.endDate);
+                  }}
+                  className="h-12 rounded-xl border border-stone-300 bg-white px-3 text-sm font-medium text-stone-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-60"
+                >
+                  <option value="" disabled>Custom date range</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </label>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-semibold text-stone-800">
                   Start date
