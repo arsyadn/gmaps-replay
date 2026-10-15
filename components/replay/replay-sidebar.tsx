@@ -62,7 +62,7 @@ export function ReplaySidebar({ data, onReset, onChangeDateRange }: ReplaySideba
           className="mt-5 h-10 w-full rounded-xl border-orange-200 bg-orange-50 font-semibold text-orange-700 hover:border-orange-300 hover:bg-orange-100 hover:text-orange-800"
         >
           <CalendarRange />
-          Change Date Range
+          Change Date
         </Button>
       </Card>
 

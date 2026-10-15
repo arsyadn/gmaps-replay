@@ -4,6 +4,13 @@ import { useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, FileJson, LoaderCircle, ShieldCheck, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { parseDateValue, shiftDateValueByYear } from "@/lib/date-range";
 
 interface DateRangeModalProps {
@@ -138,14 +145,18 @@ export function DateRangeModal({
             </div>
 
             <div className="px-6 py-6 sm:px-7">
-              <label className="mb-5 grid gap-2 text-sm font-semibold text-stone-800">
-                Quick select a year
-                <select
-                  value={selectedPresetYear ?? ""}
+              <div className="mb-5 grid gap-2">
+                <label
+                  id="quick-year-label"
+                  className="text-sm font-semibold text-stone-800"
+                >
+                  Quick select a year
+                </label>
+                <Select
+                  value={selectedPresetYear?.toString() ?? ""}
                   disabled={isLoading}
-                  onChange={(event) => {
-                    if (!event.target.value) return;
-                    const year = Number(event.target.value);
+                  onValueChange={(value) => {
+                    const year = Number(value);
                     if (!Number.isInteger(year)) return;
                     const yearRange = getYearDateRange(
                       year,
@@ -155,14 +166,22 @@ export function DateRangeModal({
                     setStartDate(yearRange.startDate);
                     setEndDate(yearRange.endDate);
                   }}
-                  className="h-12 rounded-xl border border-stone-300 bg-white px-3 text-sm font-medium text-stone-900 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-60"
                 >
-                  <option value="" disabled>Custom date range</option>
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </label>
+                  <SelectTrigger
+                    aria-labelledby="quick-year-label"
+                    className="h-12! w-full rounded-xl border-stone-300 bg-white px-3 font-medium text-stone-900 focus-visible:border-orange-500 focus-visible:ring-orange-100"
+                  >
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start" className="rounded-xl">
+                    {availableYears.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-semibold text-stone-800">
