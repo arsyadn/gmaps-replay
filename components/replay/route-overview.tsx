@@ -6,7 +6,6 @@ import { MapLibreOverlay, type MapLibreOverlayProps } from "@deck.gl/maplibre";
 import {
   CalendarDays,
   Download,
-  Flag,
   Footprints,
   LoaderCircle,
   MapPin,
@@ -254,9 +253,6 @@ function JourneyMap({
         <AttributionControl compact={false} position="bottom-right" />
       </Map>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-stone-950 px-3 py-2 text-xs font-semibold text-white shadow-xl">
-        <Flag className="size-3.5 fill-current" /> Complete route
-      </div>
       <p className="pointer-events-none absolute right-3 top-3 z-20 rounded-lg bg-white/90 px-2.5 py-1.5 font-mono text-[10px] font-semibold text-stone-600 shadow-sm backdrop-blur">
         {Math.abs(center.lat).toFixed(2)}&deg;{center.lat >= 0 ? "N" : "S"}, {Math.abs(center.lng).toFixed(2)}&deg;{center.lng >= 0 ? "E" : "W"}
       </p>
