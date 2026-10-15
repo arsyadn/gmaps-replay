@@ -3,7 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Traceback — Your location history, in motion",
+  title: "Traceback - Your location history, in motion",
   description: "Privately replay your Google Takeout Location History in your browser.",
 };
 
