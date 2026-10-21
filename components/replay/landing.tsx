@@ -24,9 +24,6 @@ export function Landing({ onFile, onBuiltIn, isLoading, error }: LandingProps) {
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 lg:py-16">
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <section className="max-w-2xl">
-            <Badge variant="outline" className="mb-6 gap-2 border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm">
-              <Sparkles className="size-3.5 text-orange-600" /> Phase 01 · Replay engine
-            </Badge>
             <h1 className="text-balance text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-stone-950 sm:text-6xl lg:text-7xl">
               Your history,<br /><span className="font-serif font-normal italic text-orange-600">back in motion.</span>
             </h1>
