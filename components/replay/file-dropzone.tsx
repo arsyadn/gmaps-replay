@@ -51,7 +51,7 @@ export function FileDropzone({ onFile, onBuiltIn, isLoading = false, error }: Fi
           {isLoading ? <LoaderCircle className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}
         </div>
         <p className="text-lg font-semibold tracking-tight text-stone-950">Drop your Location History here</p>
-        <p className="mt-2 max-w-xs text-sm leading-6 text-stone-500">Timeline JSON from your phone · processed privately in your browser</p>
+        <p className="mt-2 max-w-xs text-sm leading-6 text-stone-500">Timeline JSON from your phone</p>
         <Button
           className="mt-6 h-11 rounded-full bg-orange-600 px-5 text-white hover:bg-orange-700"
           disabled={isLoading}
